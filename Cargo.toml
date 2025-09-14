@@ -1,0 +1,17 @@
+[package]
+name = "flashapi"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "A lightweight webserver."
+homepage = "https://flashapi.surajpheudin.com"
+repository = "https://github.com/surajpheudin/flashapi"
+readme = "README.md"
+keywords = ["webserver", "api"]
+categories = ["web-programming", "web-programming::http-server"]
+authors = ["Suraj Pheudin"]
+documentation = "https://docs.rs/flashapi"
+
+[dependencies]
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
