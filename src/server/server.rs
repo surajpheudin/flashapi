@@ -94,7 +94,7 @@ impl HttpServer {
             None => 7878,
         };
 
-        let res = TcpListener::bind("127.0.0.1:".to_string() + &open_port.to_string());
+        let res = TcpListener::bind("0.0.0.0:".to_string() + &open_port.to_string());
 
         if let Ok(listener) = res {
             for stream in listener.incoming() {
