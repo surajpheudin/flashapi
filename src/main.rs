@@ -22,7 +22,7 @@ fn main() {
     }
 
     fn post_handler(request: Request, response: &mut Response) {
-        response.send_json(server::http::HttpStatus::Ok, &request.headers);
+        response.send_json(server::http::HttpStatus::Ok, &request.raw_body);
     }
 
     server.get(String::from("/user"), handler);
