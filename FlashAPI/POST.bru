@@ -1,0 +1,27 @@
+meta {
+  name: POST
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{BASE_URL}}/user
+  body: json
+  auth: inherit
+}
+
+headers {
+  X-Hub-Signature-256: mysecrect888888888
+}
+
+body:json {
+  {
+    "repository":{
+      "full_name": "surajpheudin/sp"
+    }
+  }
+}
+
+settings {
+  encodeUrl: true
+}
