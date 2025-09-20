@@ -21,6 +21,11 @@ fn main() {
         response.send_json(server::http::HttpStatus::Ok, &user);
     }
 
+    fn post_handler(request: Request, response: &mut Response) {
+        response.send_json(server::http::HttpStatus::Ok, &request);
+    }
+
     server.get(String::from("/user"), handler);
-    server.listen(Some(7878));
+    server.post(String::from("/user"), post_handler);
+    server.listen(Some(8000));
 }
