@@ -13,6 +13,7 @@ pub struct Request {
     pub headers: HashMap<String, String>,
     pub method: HttpMethod,
     pub path: String,
+    pub raw_body: Vec<u8>,
 }
 
 pub(crate) fn get_request_info(stream: &TcpStream) -> Request {
@@ -59,13 +60,13 @@ pub(crate) fn get_request_info(stream: &TcpStream) -> Request {
     let path = String::from(second_word);
 
     // Calculate request body in JSON format
-    let mut http_request_body = vec![0; content_length];
+    let mut raw_body = vec![0; content_length];
     let mut body: Option<Value> = None;
 
     if content_length > 0 {
-        let result = buf_reader.read_exact(&mut http_request_body);
+        let result = buf_reader.read_exact(&mut raw_body);
         if let Ok(_) = result {
-            let body_str = String::from_utf8_lossy(&http_request_body);
+            let body_str = String::from_utf8_lossy(&raw_body);
             body = serde_json::from_str(&body_str).unwrap();
         }
     }
@@ -75,5 +76,6 @@ pub(crate) fn get_request_info(stream: &TcpStream) -> Request {
         headers,
         method,
         path,
+        raw_body,
     }
 }
