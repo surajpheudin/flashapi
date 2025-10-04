@@ -1,13 +1,10 @@
-use std::{
-    collections::HashMap,
-    io::{BufRead, BufReader, Read},
-    net::TcpStream,
-};
-
-use serde_json::Value;
-
 use crate::server::http::HttpMethod;
+use serde_json::Value;
+use std::collections::HashMap;
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
+use tokio::net::TcpStream;
 
+#[derive(Debug)]
 pub struct Request {
     pub body: Option<Value>,
     pub headers: HashMap<String, String>,
@@ -16,7 +13,7 @@ pub struct Request {
     pub raw_body: Vec<u8>,
 }
 
-pub(crate) fn get_request_info(stream: &TcpStream) -> Request {
+pub(crate) async fn get_request_info(stream: &mut TcpStream) -> Request {
     let mut buf_reader = BufReader::new(stream);
     let mut content_length = 0;
 
@@ -24,12 +21,12 @@ pub(crate) fn get_request_info(stream: &TcpStream) -> Request {
     let mut request_line = String::new();
 
     // First line (e.g. GET /path HTTP/1.1)
-    buf_reader.read_line(&mut request_line).unwrap();
+    buf_reader.read_line(&mut request_line).await.unwrap();
 
     // Calculate headers by reading until an empty line is found
     loop {
         let mut line = String::new();
-        buf_reader.read_line(&mut line).unwrap();
+        buf_reader.read_line(&mut line).await.unwrap();
 
         if line == "\r\n" || line == "\n" {
             break;
@@ -54,6 +51,9 @@ pub(crate) fn get_request_info(stream: &TcpStream) -> Request {
         "GET" => HttpMethod::Get,
         "PATCH" => HttpMethod::Patch,
         "POST" => HttpMethod::Post,
+        "PUT" => HttpMethod::Put,
+        "HEAD" => HttpMethod::Head,
+        "OPTIONS" => HttpMethod::Options,
         _ => HttpMethod::Get,
     };
 
@@ -64,7 +64,7 @@ pub(crate) fn get_request_info(stream: &TcpStream) -> Request {
     let mut body: Option<Value> = None;
 
     if content_length > 0 {
-        let result = buf_reader.read_exact(&mut raw_body);
+        let result = buf_reader.read_exact(&mut raw_body).await;
         if let Ok(_) = result {
             let body_str = String::from_utf8_lossy(&raw_body);
             body = serde_json::from_str(&body_str).unwrap();

@@ -1,127 +1,118 @@
-use std::{
-    collections::HashMap,
-    net::{TcpListener, TcpStream},
+use crate::{
+    Request,
+    server::{
+        handler::{AsyncHandler, Handler},
+        http::{HttpMethod, HttpStatus},
+        request::get_request_info,
+        response::Response,
+    },
 };
+use std::{collections::HashMap, sync::Arc};
+use tokio::net::{TcpListener, TcpStream};
 
-use crate::server::{
-    http::{HttpMethod, HttpStatus},
-    request::{Request, get_request_info},
-    response::Response,
-};
+type Routes<S> = HashMap<(HttpMethod, String), Arc<dyn Handler<S>>>;
 
-/// # Examples
-/// ```ignore
-/// use serde::Serialize;
-/// use flashapi::{HttpServer, HttpStatus, Request, Response};
-///
-/// #[derive(Serialize)]
-/// struct User {
-///     id: u16,
-///     name: String,
-/// }
-///
-/// let mut server = HttpServer::new();
-///
-/// fn handler(_: Request, response: &mut Response) {
-///     let user: User = User {
-///         id: 1,
-///         name: String::from("John Doe"),
-///     };
-///     response.send_json(HttpStatus::Ok, &user);
-/// }
-///
-/// server.get(String::from("/user"), handler);
-/// server.listen(Some(7878));
-/// ```
-pub type HandlerFn = fn(Request, &mut Response);
-
-/// # Exaamples
-/// ```ignore
-/// use serde::Serialize;
-/// use flashapi::{HttpServer, HttpStatus, Request, Response};
-///
-/// #[derive(Serialize)]
-/// struct User {
-///     id: u16,
-///     name: String,
-/// }
-///
-/// fn main() {
-///     let mut server = HttpServer::new();
-///
-///     fn handler(_: Request, response: &mut Response) {
-///         let user: User = User {
-///             id: 1,
-///             name: String::from("John Doe"),
-///         };
-///         response.send_json(HttpStatus::Ok, &user);
-///     }
-///
-///     server.get(String::from("/user"), handler);
-///     server.listen(Some(7878));
-/// }
-/// ```
-pub struct HttpServer {
-    routes: HashMap<(HttpMethod, String), HandlerFn>,
+pub struct HttpServer<S = ()> {
+    routes: Routes<S>,
+    state: Option<Arc<S>>,
 }
 
-impl HttpServer {
+impl<S> HttpServer<S>
+where
+    S: Send + Sync + 'static,
+{
     pub fn new() -> Self {
         Self {
             routes: HashMap::new(),
+            state: None,
         }
     }
 
-    pub fn delete(&mut self, path: String, handler: HandlerFn) {
-        self.routes.insert((HttpMethod::Delete, path), handler);
+    pub fn with_state(mut self, state: S) -> Self {
+        self.state = Some(Arc::new(state));
+        self
     }
 
-    pub fn get(&mut self, path: String, handler: HandlerFn) {
-        self.routes.insert((HttpMethod::Get, path), handler);
+    // ------------------------------------------------------------
+    // Routes start
+    // ------------------------------------------------------------
+    pub fn delete<F, Fut>(&mut self, path: String, handler: F)
+    where
+        F: Fn(Request, Response, Arc<S>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = ()> + Send + Sync + 'static,
+    {
+        let h = AsyncHandler::new(handler);
+        self.routes.insert((HttpMethod::Delete, path), Arc::new(h));
     }
 
-    pub fn patch(&mut self, path: String, handler: HandlerFn) {
-        self.routes.insert((HttpMethod::Patch, path), handler);
+    pub fn get<F, Fut>(&mut self, path: String, handler: F)
+    where
+        F: Fn(Request, Response, Arc<S>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = ()> + Send + 'static,
+    {
+        let h = AsyncHandler::new(handler);
+
+        self.routes.insert((HttpMethod::Get, path), Arc::new(h));
     }
 
-    pub fn post(&mut self, path: String, handler: HandlerFn) {
-        self.routes.insert((HttpMethod::Post, path), handler);
+    pub fn patch<F, Fut>(&mut self, path: String, handler: F)
+    where
+        F: Fn(Request, Response, Arc<S>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = ()> + Send + Sync + 'static,
+    {
+        let h = AsyncHandler::new(handler);
+
+        self.routes.insert((HttpMethod::Patch, path), Arc::new(h));
     }
 
-    pub fn listen(&mut self, port: Option<u16>) {
-        let open_port = match port {
-            Some(p) => p,
-            None => 7878,
-        };
+    pub fn post<F, Fut>(&mut self, path: String, handler: F)
+    where
+        F: Fn(Request, Response, Arc<S>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = ()> + Send + Sync + 'static,
+    {
+        let h = AsyncHandler::new(handler);
 
-        let res = TcpListener::bind("0.0.0.0:".to_string() + &open_port.to_string());
-
-        if let Ok(listener) = res {
-            for stream in listener.incoming() {
-                match stream {
-                    Ok(stream) => Self::handle_connection(self, stream),
-                    Err(error) => println!("Connection failed: {error}"),
-                }
-            }
-        } else if let Err(error) = res {
-            eprintln!("error: {error}");
-        }
+        self.routes.insert((HttpMethod::Post, path), Arc::new(h));
     }
 
-    fn handle_connection(&mut self, stream: TcpStream) {
-        let request_info = get_request_info(&stream);
+    // ------------------------------------------------------------
+    // Routes end
+    // ------------------------------------------------------------
 
-        let route = self.routes.get(&(
+    async fn handle_connection(routes: Routes<S>, mut stream: TcpStream, state: Option<Arc<S>>) {
+        let request_info = get_request_info(&mut stream).await;
+
+        let handler = routes.get(&(
             request_info.method.clone(),
             String::from(&request_info.path),
         ));
 
         let mut response: Response = Response::new(stream);
-        if let Some(handler) = route {
-            handler(request_info, &mut response);
-            return;
-        }
 
-        response.send(HttpStatus::NotFound, "Route not found.", "text/plain");
+        if let Some(handler) = handler {
+            handler.call(request_info, response, state).await;
+        } else {
+            response
+                .send(HttpStatus::NotFound, "Route not found.", "text/plain")
+                .await;
+        }
+    }
+
+    pub async fn listen(&mut self, port: u16) -> std::io::Result<()> {
+        let listener = TcpListener::bind("0.0.0.0:".to_string() + &port.to_string()).await?;
+
+        let routes = self.routes.clone();
+        let state = self.state.clone();
+
+        loop {
+            let (stream, _) = listener.accept().await?;
+
+            let routes = routes.clone();
+            let state = state.clone();
+
+            tokio::spawn(async {
+                HttpServer::handle_connection(routes, stream, state).await;
+            });
+        }
     }
 }
