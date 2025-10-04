@@ -1,6 +1,6 @@
 [package]
 name = "flashapi"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2024"
 license = "MIT"
 description = "A lightweight webserver."
@@ -15,3 +15,9 @@ documentation = "https://docs.rs/flashapi"
 [dependencies]
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+tokio = { version = "1.47.1", features = ["full"] }
+
+[dev-dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+sqlx = {version = "0.8.6", features = [ "chrono", "postgres", "runtime-tokio", "tls-native-tls",]}
+
