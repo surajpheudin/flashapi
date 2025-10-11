@@ -5,9 +5,13 @@ meta {
 }
 
 get {
-  url: {{BASE_URL}}/user
+  url: {{BASE_URL}}/user?search=happy
   body: json
   auth: inherit
+}
+
+params:query {
+  search: happy
 }
 
 settings {

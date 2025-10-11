@@ -1,0 +1,2 @@
+[alias]
+example-simple = "run --example simple"
