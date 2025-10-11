@@ -28,12 +28,12 @@ async fn main() {
 }
 
 #[derive(FromRow, Serialize)]
-struct Deployment {
+struct User {
     name: String,
 }
 
-async fn get_handler(_: Request, mut response: Response, state: Arc<AppState>) {
-    let rows: Vec<Deployment> = sqlx::query_as("SELECT * FROM deployment")
+async fn get_handler(_request: Request, mut response: Response, state: Arc<AppState>) {
+    let rows: Vec<User> = sqlx::query_as("SELECT * FROM user")
         .fetch_all(&*state.db)
         .await
         .unwrap();
