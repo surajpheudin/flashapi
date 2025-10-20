@@ -1,0 +1,15 @@
+meta {
+  name: GET Single
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{BASE_URL}}/user/2
+  body: json
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

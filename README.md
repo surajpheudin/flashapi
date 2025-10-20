@@ -23,7 +23,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-flashapi = "0.2.0"
+flashapi = "0.2.2"
 ```
 
 ## Quickstart
