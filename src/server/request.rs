@@ -6,8 +6,6 @@ use std::collections::HashMap;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::net::TcpStream;
 
-type RequestQuery = HashMap<String, Vec<String>>;
-
 #[derive(Debug, Serialize)]
 pub struct QueryParams(HashMap<String, Vec<String>>);
 
@@ -26,6 +24,7 @@ pub struct Request {
     pub body: Option<Value>,
     pub headers: HashMap<String, String>,
     pub method: HttpMethod,
+    pub params: Option<HashMap<String, String>>,
     pub path: String,
     pub raw_body: Vec<u8>,
     pub query: Option<QueryParams>,
@@ -136,6 +135,7 @@ pub(crate) async fn get_request_info(stream: &mut TcpStream) -> Request {
         body,
         headers,
         method,
+        params: None,
         path,
         raw_body,
         query,

@@ -5,6 +5,7 @@ use crate::{
         http::{HttpMethod, HttpStatus},
         request::get_request_info,
         response::Response,
+        url::match_route,
     },
 };
 use std::{collections::HashMap, sync::Arc};
@@ -74,18 +75,26 @@ where
 
         self.routes.insert((HttpMethod::Post, path), Arc::new(h));
     }
-
     // ------------------------------------------------------------
     // Routes end
     // ------------------------------------------------------------
 
     async fn handle_connection(routes: Routes<S>, mut stream: TcpStream, state: Option<Arc<S>>) {
-        let request_info = get_request_info(&mut stream).await;
+        let mut request_info = get_request_info(&mut stream).await;
 
-        let handler = routes.get(&(
-            request_info.method.clone(),
-            String::from(&request_info.path),
-        ));
+        let mut handler: Option<&Arc<dyn Handler<S>>> = None;
+
+        for ((method, path), h) in &routes {
+            if method == &request_info.method {
+                // ------------------------------------------------------------
+                // Handling dynamic route check and adding params if found any
+                // ------------------------------------------------------------
+                if let Some(params) = match_route(&path, &request_info.path.to_string()) {
+                    request_info.params = Some(params);
+                    handler = Some(h);
+                }
+            }
+        }
 
         let mut response: Response = Response::new(stream);
 
