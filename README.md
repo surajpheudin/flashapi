@@ -6,6 +6,15 @@
 
 A lightweight webserver framework for Rust, designed to be simple and minimal.
 
+
+---
+
+## Documentation
+
+Visit https://flashapi.surajpheudin.com/ to view the full documentation.
+
+---
+
 ---
 
 ## Features
@@ -23,7 +32,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-flashapi = "0.2.2"
+flashapi = "0.2.3"
 ```
 
 ## Quickstart
